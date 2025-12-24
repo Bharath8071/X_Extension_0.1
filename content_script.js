@@ -108,34 +108,79 @@
     // Create button - MUST be clickable
     const button = document.createElement('button');
     button.textContent = 'Continue Anyway';
-    button.style.cssText = `
-      background: rgba(255, 255, 255, 0.2) !important;
-      border: 2px solid rgba(255, 255, 255, 0.3) !important;
-      color: white !important;
-      padding: 14px 32px !important;
-      font-size: 16px !important;
-      font-weight: 600 !important;
-      border-radius: 12px !important;
-      cursor: pointer !important;
-      transition: all 0.3s ease !important;
-      font-family: inherit !important;
-      pointer-events: auto !important;
-      position: relative !important;
-      z-index: 2147483648 !important;
-    `;
+    
+    // Function to set button disabled state
+    const setButtonDisabled = (disabled) => {
+      button.disabled = disabled;
+      if (disabled) {
+        button.style.cssText = `
+          background: rgba(255, 255, 255, 0.1) !important;
+          border: 2px solid rgba(255, 255, 255, 0.2) !important;
+          color: rgba(255, 255, 255, 0.5) !important;
+          padding: 14px 32px !important;
+          font-size: 16px !important;
+          font-weight: 600 !important;
+          border-radius: 12px !important;
+          cursor: not-allowed !important;
+          transition: all 0.3s ease !important;
+          font-family: inherit !important;
+          pointer-events: none !important;
+          position: relative !important;
+          z-index: 2147483648 !important;
+        `;
+      } else {
+        button.style.cssText = `
+          background: rgba(255, 255, 255, 0.2) !important;
+          border: 2px solid rgba(255, 255, 255, 0.3) !important;
+          color: white !important;
+          padding: 14px 32px !important;
+          font-size: 16px !important;
+          font-weight: 600 !important;
+          border-radius: 12px !important;
+          cursor: pointer !important;
+          transition: all 0.3s ease !important;
+          font-family: inherit !important;
+          pointer-events: auto !important;
+          position: relative !important;
+          z-index: 2147483648 !important;
+        `;
+      }
+    };
 
-    // Button hover effect
+    // Initially disable the button
+    setButtonDisabled(true);
+
+    // Enable button after 10 seconds (countdown hidden from UI)
+    const enableTimer = setTimeout(() => {
+      setButtonDisabled(false);
+    }, 10000); // 10 seconds
+
+    // Button hover effect (only when enabled)
     button.addEventListener('mouseenter', () => {
-      button.style.background = 'rgba(255, 255, 255, 0.3)';
-      button.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+      if (!button.disabled) {
+        button.style.background = 'rgba(255, 255, 255, 0.3)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+      }
     });
     button.addEventListener('mouseleave', () => {
-      button.style.background = 'rgba(255, 255, 255, 0.2)';
-      button.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      if (!button.disabled) {
+        button.style.background = 'rgba(255, 255, 255, 0.2)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      }
     });
 
     // Button click handler - NO await, fire-and-forget
     button.addEventListener('click', (e) => {
+      // Prevent click if button is disabled
+      if (button.disabled) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      // Clear the enable timer if it's still running
+      clearTimeout(enableTimer);
+      
       // Calculate unlock timestamp
       const unlockUntil = Date.now() + (UNLOCK_MINUTES * 60 * 1000);
       
@@ -152,7 +197,7 @@
       if (document.documentElement) {
         document.documentElement.style.overflow = '';
       }
-    }, false);
+    }, false); 
 
     // Assemble overlay
     content.appendChild(title);
