@@ -169,7 +169,96 @@
       }
     });
 
-    // Button click handler - NO await, fire-and-forget
+    // Function to show time selection options
+    const showTimeSelection = () => {
+      // Hide the button and message
+      button.style.display = 'none';
+      message.style.display = 'none';
+      
+      // Update title
+      title.textContent = 'Choose Unlock Duration';
+      
+      // Create time selection subtitle
+      const timeSubtitle = document.createElement('p');
+      timeSubtitle.textContent = 'Select how long you want to unlock this site:';
+      timeSubtitle.style.cssText = `
+        font-size: 18px !important;
+        margin: 0 0 32px 0 !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        line-height: 1.6 !important;
+      `;
+      
+      // Create time options container
+      const timeOptions = document.createElement('div');
+      timeOptions.style.cssText = `
+        display: flex !important;
+        gap: 16px !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+      `;
+      
+      // Time options: 5, 10, 20 minutes
+      const timeOptionsList = [5, 10, 20];
+      
+      timeOptionsList.forEach((minutes) => {
+        const timeButton = document.createElement('button');
+        timeButton.textContent = `${minutes} min`;
+        timeButton.style.cssText = `
+          background: rgba(255, 255, 255, 0.2) !important;
+          border: 2px solid rgba(255, 255, 255, 0.3) !important;
+          color: white !important;
+          padding: 12px 24px !important;
+          font-size: 16px !important;
+          font-weight: 600 !important;
+          border-radius: 12px !important;
+          cursor: pointer !important;
+          transition: all 0.3s ease !important;
+          font-family: inherit !important;
+          pointer-events: auto !important;
+          min-width: 100px !important;
+        `;
+        
+        // Hover effect
+        timeButton.addEventListener('mouseenter', () => {
+          timeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+          timeButton.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+        });
+        timeButton.addEventListener('mouseleave', () => {
+          timeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+          timeButton.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        });
+        
+        // Click handler for time selection
+        timeButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          
+          // Calculate unlock timestamp with selected minutes
+          const unlockUntil = Date.now() + (minutes * 60 * 1000);
+          
+          // Store unlock timestamp (fire-and-forget)
+          storeUnlockTimestamp(hostname, unlockUntil);
+          
+          // Remove overlay immediately
+          overlay.remove();
+          
+          // Restore scroll
+          if (document.body) {
+            document.body.style.overflow = '';
+          }
+          if (document.documentElement) {
+            document.documentElement.style.overflow = '';
+          }
+        }, false);
+        
+        timeOptions.appendChild(timeButton);
+      });
+      
+      // Insert subtitle and time options before the hidden message
+      content.insertBefore(timeSubtitle, message);
+      content.insertBefore(timeOptions, message);
+    };
+
+    // Button click handler - show time selection
     button.addEventListener('click', (e) => {
       // Prevent click if button is disabled
       if (button.disabled) {
@@ -181,22 +270,8 @@
       // Clear the enable timer if it's still running
       clearTimeout(enableTimer);
       
-      // Calculate unlock timestamp
-      const unlockUntil = Date.now() + (UNLOCK_MINUTES * 60 * 1000);
-      
-      // Store unlock timestamp (fire-and-forget)
-      storeUnlockTimestamp(hostname, unlockUntil);
-      
-      // Remove overlay immediately
-      overlay.remove();
-      
-      // Restore scroll
-      if (document.body) {
-        document.body.style.overflow = '';
-      }
-      if (document.documentElement) {
-        document.documentElement.style.overflow = '';
-      }
+      // Show time selection instead of immediately unlocking
+      showTimeSelection();
     }, false); 
 
     // Assemble overlay
