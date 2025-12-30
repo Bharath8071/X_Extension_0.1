@@ -428,7 +428,7 @@
           if (document.documentElement) {
             document.documentElement.style.overflow = '';
           }
-          
+
           startUnlockMonitoring(hostname);
         }, false);
         
