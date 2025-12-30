@@ -39,135 +39,11 @@
     });
   }
 
-  // Timer to monitor unlock expiration
-  let unlockMonitorTimer = null;
-  let unlockPeriodicCheck = null;
-  
-  // Store original requestAnimationFrame for restoration
-  let originalRequestAnimationFrame = null;
-  let originalCancelAnimationFrame = null;
-
-  // Function to stop/pause background processes on the website
-  function stopBackgroundProcesses() {
-    // Pause all video and audio elements
-    try {
-      const mediaElements = document.querySelectorAll('video, audio');
-      mediaElements.forEach((media) => {
-        if (media && typeof media.pause === 'function') {
-          media.pause();
-          // Also set playback rate to 0 to ensure it's stopped
-          if (typeof media.playbackRate !== 'undefined') {
-            media.playbackRate = 0;
-          }
-        }
-      });
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Pause YouTube videos specifically (iframe or embedded)
-    try {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe) => {
-        try {
-          // Try to access iframe content (may fail due to CORS)
-          if (iframe.contentWindow) {
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            const iframeVideos = iframeDoc.querySelectorAll('video');
-            iframeVideos.forEach((video) => {
-              if (video && typeof video.pause === 'function') {
-                video.pause();
-              }
-            });
-          }
-        } catch (e) {
-          // CORS or other errors - ignore
-        }
-      });
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Stop CSS animations by adding a class that pauses them
-    try {
-      const style = document.createElement('style');
-      style.id = 'focus-overlay-pause-animations';
-      style.textContent = `
-        * {
-          animation-play-state: paused !important;
-          transition: none !important;
-        }
-      `;
-      if (!document.getElementById('focus-overlay-pause-animations')) {
-        document.head.appendChild(style);
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Disable requestAnimationFrame to stop animations
-    try {
-      if (window.requestAnimationFrame && !originalRequestAnimationFrame) {
-        originalRequestAnimationFrame = window.requestAnimationFrame;
-        originalCancelAnimationFrame = window.cancelAnimationFrame;
-        window.requestAnimationFrame = function() {
-          return 0; // Return a no-op ID
-        };
-        window.cancelAnimationFrame = function() {
-          // No-op
-        };
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Pause any Web Animations API animations
-    try {
-      document.getAnimations().forEach((animation) => {
-        if (animation && typeof animation.pause === 'function') {
-          animation.pause();
-        }
-      });
-    } catch (e) {
-      // Ignore errors
-    }
-  }
-
-  // Function to resume background processes (when overlay is removed)
-  function resumeBackgroundProcesses() {
-    // Remove animation pause styles
-    try {
-      const style = document.getElementById('focus-overlay-pause-animations');
-      if (style) {
-        style.remove();
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Restore original requestAnimationFrame
-    try {
-      if (originalRequestAnimationFrame) {
-        window.requestAnimationFrame = originalRequestAnimationFrame;
-        if (originalCancelAnimationFrame) {
-          window.cancelAnimationFrame = originalCancelAnimationFrame;
-        }
-        originalRequestAnimationFrame = null;
-        originalCancelAnimationFrame = null;
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-
-    // Note: We don't resume videos/animations automatically
-    // as the user might want to manually control them after unlock
-  }
+  // Global variable to track unlock monitoring interval
+  let unlockCheckInterval = null;
 
   // Create "Session Ended" overlay
   function createSessionEndedOverlay() {
-    // Stop background processes first
-    stopBackgroundProcesses();
-    
     // Remove any existing overlay first
     const existing = document.getElementById('focus-overlay-blocker');
     if (existing) {
@@ -304,78 +180,47 @@
     }
   }
 
-  // Monitor unlock expiration
-  function startUnlockMonitor(hostname, unlockUntil) {
-    // Clear any existing timer
-    if (unlockMonitorTimer) {
-      clearInterval(unlockMonitorTimer);
-      unlockMonitorTimer = null;
-    }
+  // Start monitoring unlock expiration
+  function startUnlockMonitoring(hostname) {
+    // Clear any existing interval
+    stopUnlockMonitoring();
 
-    // Calculate time until expiration
-    const timeUntilExpiration = unlockUntil - Date.now();
-    
-    if (timeUntilExpiration <= 0) {
-      // Already expired, show session ended overlay
-      createSessionEndedOverlay();
-      return;
-    }
-
-    // Set timer to check when unlock expires
-    unlockMonitorTimer = setTimeout(() => {
-      // Check if still expired (in case user refreshed or navigated)
-      chrome.storage.local.get([getUnlockKey(hostname)], (result) => {
+    // Check every 5 seconds if unlock has expired
+    unlockCheckInterval = setInterval(() => {
+      const unlockKey = getUnlockKey(hostname);
+      chrome.storage.local.get([unlockKey], (result) => {
         if (chrome.runtime.lastError) {
+          stopUnlockMonitoring();
           return;
         }
-        
-        const currentUnlockUntil = result[getUnlockKey(hostname)];
-        
-        // If unlock time has expired or doesn't exist, show session ended overlay
-        if (!currentUnlockUntil || Date.now() >= currentUnlockUntil) {
-          createSessionEndedOverlay();
-        }
-      });
-      
-      unlockMonitorTimer = null;
-    }, timeUntilExpiration);
 
-    // Also check periodically (every 5 seconds) to catch any edge cases
-    unlockPeriodicCheck = setInterval(() => {
-      chrome.storage.local.get([getUnlockKey(hostname)], (result) => {
-        if (chrome.runtime.lastError) {
-          stopUnlockMonitor();
-          return;
-        }
-        
-        const currentUnlockUntil = result[getUnlockKey(hostname)];
-        
-        // If unlock time has expired, show session ended overlay
-        if (!currentUnlockUntil || Date.now() >= currentUnlockUntil) {
-          stopUnlockMonitor();
-          createSessionEndedOverlay();
+        const unlockUntil = result[unlockKey];
+
+        // If unlock has expired or doesn't exist, show session ended overlay
+        if (!unlockUntil || Date.now() >= unlockUntil) {
+          stopUnlockMonitoring();
+          if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            createSessionEndedOverlay();
+          } else {
+            document.addEventListener('DOMContentLoaded', () => {
+              createSessionEndedOverlay();
+            }, { once: true });
+          }
         }
       });
     }, 5000); // Check every 5 seconds
   }
 
-  // Stop unlock monitoring
-  function stopUnlockMonitor() {
-    if (unlockMonitorTimer) {
-      clearTimeout(unlockMonitorTimer);
-      unlockMonitorTimer = null;
-    }
-    if (unlockPeriodicCheck) {
-      clearInterval(unlockPeriodicCheck);
-      unlockPeriodicCheck = null;
+  // Stop monitoring unlock expiration
+  function stopUnlockMonitoring() {
+    if (unlockCheckInterval) {
+      clearInterval(unlockCheckInterval);
+      unlockCheckInterval = null;
     }
   }
 
   // Create and inject the overlay (ATOMIC - all-or-nothing)
   function createOverlay() {
-    // Stop background processes first
-    stopBackgroundProcesses();
-    
     // Remove any existing overlay first
     const existing = document.getElementById('focus-overlay-blocker');
     if (existing) {
@@ -576,9 +421,6 @@
           // Remove overlay immediately
           overlay.remove();
           
-          // Resume background processes
-          resumeBackgroundProcesses();
-          
           // Restore scroll
           if (document.body) {
             document.body.style.overflow = '';
@@ -586,6 +428,8 @@
           if (document.documentElement) {
             document.documentElement.style.overflow = '';
           }
+
+          startUnlockMonitoring(hostname);
         }, false);
         
         timeOptions.appendChild(timeButton);
@@ -746,11 +590,13 @@
       // STEP 2: If unlocked (Date.now() < unlockUntil), start monitoring for expiration
       if (unlockUntil && Date.now() < unlockUntil) {
         // Start monitoring unlock expiration
-        startUnlockMonitor(hostname, unlockUntil);
+        startUnlockMonitoring(hostname);
         return; // Exit immediately - site is unlocked, do nothing
       }
 
       // STEP 3: Only if locked (Date.now() >= unlockUntil), inject overlay
+      // Stop monitoring since site is locked
+      stopUnlockMonitoring();
       // This is the ONLY place where overlay is created
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createOverlay, { once: true });
@@ -772,14 +618,12 @@
     const currentUrl = location.href;
     if (currentUrl !== lastUrl) {
       lastUrl = currentUrl;
-      // Stop any existing unlock monitor
-      stopUnlockMonitor();
+      // Stop any existing monitoring
+      stopUnlockMonitoring();
       // Remove any existing overlay and re-check unlock status
       const existing = document.getElementById('focus-overlay-blocker');
       if (existing) {
         existing.remove();
-        // Resume background processes
-        resumeBackgroundProcesses();
         // Restore scroll
         if (document.body) {
           document.body.style.overflow = '';
