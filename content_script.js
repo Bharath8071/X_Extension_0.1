@@ -39,6 +39,186 @@
     });
   }
 
+  // Global variable to track unlock monitoring interval
+  let unlockCheckInterval = null;
+
+  // Create "Session Ended" overlay
+  function createSessionEndedOverlay() {
+    // Remove any existing overlay first
+    const existing = document.getElementById('focus-overlay-blocker');
+    if (existing) {
+      existing.remove();
+    }
+
+    // Create overlay container
+    const overlay = document.createElement('div');
+    overlay.id = 'focus-overlay-blocker';
+    overlay.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      z-index: 2147483647 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+      color: white !important;
+      box-sizing: border-box !important;
+      padding: 20px !important;
+      overflow: hidden !important;
+      pointer-events: auto !important;
+    `;
+
+    // Create content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+      text-align: center !important;
+      max-width: 500px !important;
+      padding: 40px !important;
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-radius: 20px !important;
+      backdrop-filter: blur(10px) !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+      pointer-events: auto !important;
+    `;
+
+    // Create title
+    const title = document.createElement('h1');
+    title.textContent = 'Session Ended';
+    title.style.cssText = `
+      font-size: 32px !important;
+      font-weight: 700 !important;
+      margin: 0 0 16px 0 !important;
+      color: white !important;
+    `;
+
+    // Create message
+    const message = document.createElement('p');
+    message.textContent = 'Your unlock period has expired. This site is now blocked again.';
+    message.style.cssText = `
+      font-size: 18px !important;
+      margin: 0 !important;
+      color: rgba(255, 255, 255, 0.9) !important;
+      line-height: 1.6 !important;
+    `;
+
+    // Assemble overlay
+    content.appendChild(title);
+    content.appendChild(message);
+    overlay.appendChild(content);
+
+    // Block all interactions
+    overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    overlay.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    overlay.addEventListener('wheel', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    overlay.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    overlay.addEventListener('touchmove', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    overlay.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    // Inject overlay
+    if (document.documentElement) {
+      document.documentElement.appendChild(overlay);
+    } else if (document.body) {
+      document.body.appendChild(overlay);
+    } else {
+      const observer = new MutationObserver(() => {
+        if (document.documentElement || document.body) {
+          (document.documentElement || document.body).appendChild(overlay);
+          observer.disconnect();
+        }
+      });
+      observer.observe(document, { childList: true, subtree: true });
+    }
+
+    // Block body scroll
+    const blockScroll = () => {
+      if (document.body) {
+        document.body.style.overflow = 'hidden';
+      }
+      if (document.documentElement) {
+        document.documentElement.style.overflow = 'hidden';
+      }
+    };
+
+    if (document.body || document.documentElement) {
+      blockScroll();
+    } else {
+      const bodyObserver = new MutationObserver(() => {
+        if (document.body || document.documentElement) {
+          blockScroll();
+          bodyObserver.disconnect();
+        }
+      });
+      bodyObserver.observe(document, { childList: true, subtree: true });
+    }
+  }
+
+  // Start monitoring unlock expiration
+  function startUnlockMonitoring(hostname) {
+    // Clear any existing interval
+    stopUnlockMonitoring();
+
+    // Check every 5 seconds if unlock has expired
+    unlockCheckInterval = setInterval(() => {
+      const unlockKey = getUnlockKey(hostname);
+      chrome.storage.local.get([unlockKey], (result) => {
+        if (chrome.runtime.lastError) {
+          stopUnlockMonitoring();
+          return;
+        }
+
+        const unlockUntil = result[unlockKey];
+
+        // If unlock has expired or doesn't exist, show session ended overlay
+        if (!unlockUntil || Date.now() >= unlockUntil) {
+          stopUnlockMonitoring();
+          if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            createSessionEndedOverlay();
+          } else {
+            document.addEventListener('DOMContentLoaded', () => {
+              createSessionEndedOverlay();
+            }, { once: true });
+          }
+        }
+      });
+    }, 5000); // Check every 5 seconds
+  }
+
+  // Stop monitoring unlock expiration
+  function stopUnlockMonitoring() {
+    if (unlockCheckInterval) {
+      clearInterval(unlockCheckInterval);
+      unlockCheckInterval = null;
+    }
+  }
+
   // Create and inject the overlay (ATOMIC - all-or-nothing)
   function createOverlay() {
     // Remove any existing overlay first
@@ -198,7 +378,7 @@
       `;
       
       // Time options: 5, 10, 20 minutes
-      const timeOptionsList = [5, 10, 20];
+      const timeOptionsList = [1, 10, 20];
       
       timeOptionsList.forEach((minutes) => {
         const timeButton = document.createElement('button');
@@ -248,6 +428,8 @@
           if (document.documentElement) {
             document.documentElement.style.overflow = '';
           }
+          
+          startUnlockMonitoring(hostname);
         }, false);
         
         timeOptions.appendChild(timeButton);
@@ -405,13 +587,16 @@
 
       const unlockUntil = result[unlockKey];
 
-      // STEP 2: If unlocked (Date.now() < unlockUntil), EXIT immediately
-      // Do NOT inject any DOM, CSS, or listeners
+      // STEP 2: If unlocked (Date.now() < unlockUntil), start monitoring for expiration
       if (unlockUntil && Date.now() < unlockUntil) {
+        // Start monitoring unlock expiration
+        startUnlockMonitoring(hostname);
         return; // Exit immediately - site is unlocked, do nothing
       }
 
       // STEP 3: Only if locked (Date.now() >= unlockUntil), inject overlay
+      // Stop monitoring since site is locked
+      stopUnlockMonitoring();
       // This is the ONLY place where overlay is created
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createOverlay, { once: true });
@@ -433,6 +618,8 @@
     const currentUrl = location.href;
     if (currentUrl !== lastUrl) {
       lastUrl = currentUrl;
+      // Stop any existing monitoring
+      stopUnlockMonitoring();
       // Remove any existing overlay and re-check unlock status
       const existing = document.getElementById('focus-overlay-blocker');
       if (existing) {
