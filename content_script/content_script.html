@@ -1,0 +1,32 @@
+<!-- Focus Overlay HTML Templates -->
+<!-- These templates are loaded and used by content_script.js -->
+
+<!-- Main Overlay Template -->
+<template id="overlay-template">
+  <div id="focus-overlay-blocker">
+    <div class="overlay-content">
+      <h1 class="overlay-title"></h1>
+      <p class="overlay-message"></p>
+      <button class="overlay-button"></button>
+    </div>
+  </div>
+</template>
+
+<!-- Session Ended Overlay Template -->
+<template id="session-ended-template">
+  <div id="focus-overlay-blocker">
+    <div class="overlay-content">
+      <h1 class="overlay-title">Session Ended</h1>
+      <p class="overlay-message session-ended">Your unlock period has expired. This site is now blocked again.</p>
+    </div>
+  </div>
+</template>
+
+<!-- Time Selection Template (dynamically inserted) -->
+<template id="time-selection-template">
+  <p class="time-subtitle">Select how long you want to unlock this site:</p>
+  <div class="time-options">
+    <!-- Time buttons will be dynamically inserted here -->
+  </div>
+</template>
+
