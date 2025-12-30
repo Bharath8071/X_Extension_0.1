@@ -237,6 +237,9 @@
         // If unlock has expired or doesn't exist, show session ended overlay
         if (!unlockUntil || Date.now() >= unlockUntil) {
           stopUnlockMonitoring();
+
+          chrome.storage.local.remove(getUnlockKey(hostname));
+
           if (document.readyState === 'complete' || document.readyState === 'interactive') {
             createSessionEndedOverlay();
           } else {
@@ -273,9 +276,16 @@
 
     // Create HTML structure using template functions
     const overlay = createOverlayContainer();
+    overlay.classList.add('session-ended');
+
     const content = createContentContainer();
+    content.className = 'overlay-content';
+
     const title = createTitle('Session Ended');
+    title.className = 'overlay-title';
+
     const message = createMessage('Your unlock period has expired. This site is now blocked again.', true);
+    message.className = 'overlay-message session-ended';
 
     // Assemble overlay
     content.appendChild(title);
@@ -504,12 +514,22 @@
     }
   };
 
+  let navCheckTimeout = null;
+
+  function throttledCheckNavigation() {
+    if (navCheckTimeout) return;
+
+    navCheckTimeout = setTimeout(() => {
+      navCheckTimeout = null;
+      checkNavigation();
+    }, 300);
+  }
+
+
   // MutationObserver for DOM changes (SPA navigation)
-  new MutationObserver(checkNavigation).observe(document, {
+  new MutationObserver(throttledCheckNavigation).observe(document, {
     subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['href']
+    childList: true
   });
 
   // Listen for popstate (back/forward navigation)
