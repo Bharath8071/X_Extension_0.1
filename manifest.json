@@ -20,8 +20,8 @@
         "https://www.instagram.com/*",
         "https://instagram.com/*"
       ],
-      "js": ["content_script.js"],
-      "css": ["content_script.css"],
+      "js": ["content_script/content_script.js"],
+      "css": ["content_script/content_script.css"],
       "run_at": "document_start",
       "all_frames": false
     }
