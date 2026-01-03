@@ -10,8 +10,13 @@
     "https://www.youtube.com/*",
     "https://youtube.com/*",
     "https://www.instagram.com/*",
-    "https://instagram.com/*"
+    "https://instagram.com/*",
+    "https://api.notion.com/*"
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Focus Overlay Settings"
+  },
   "content_scripts": [
     {
       "matches": [

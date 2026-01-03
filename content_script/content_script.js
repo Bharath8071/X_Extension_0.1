@@ -98,6 +98,45 @@
     return button;
   }
 
+  /**
+   * Creates tasks section title
+   */
+  function createTasksSectionTitle() {
+    const title = document.createElement('h2');
+    title.className = 'tasks-section-title';
+    // title.textContent = 'Today\'s Planned Tasks';
+    return title;
+  }
+
+  /**
+   * Creates tasks list container
+   */
+  function createTasksList() {
+    const list = document.createElement('ul');
+    list.className = 'tasks-list';
+    return list;
+  }
+
+  /**
+   * Creates a task list item
+   */
+  function createTaskItem(taskTitle) {
+    const item = document.createElement('li');
+    item.className = 'task-item';
+    item.textContent = taskTitle;
+    return item;
+  }
+
+  /**
+   * Creates empty tasks message
+   */
+  function createEmptyTasksMessage() {
+    const message = document.createElement('p');
+    message.className = 'tasks-empty-message';
+    message.textContent = 'No focus tasks found for today.';
+    return message;
+  }
+
   // ============================================================================
   // UTILITY FUNCTIONS
   // ============================================================================
@@ -261,6 +300,39 @@
   }
 
   // ============================================================================
+  // NOTION TASKS INTEGRATION
+  // ============================================================================
+
+  /**
+   * Fetches tasks from background script and displays them
+   */
+  function fetchAndDisplayTasks(container) {
+    // Request tasks from background script
+    chrome.runtime.sendMessage({ type: 'FETCH_NOTION_TASKS' }, (response) => {
+      // Handle errors gracefully
+      if (chrome.runtime.lastError) {
+        console.error('Error sending message:', chrome.runtime.lastError);
+        container.appendChild(createEmptyTasksMessage());
+        return;
+      }
+
+      // Check response
+      if (!response || !response.success || !response.tasks || response.tasks.length === 0) {
+        container.appendChild(createEmptyTasksMessage());
+        return;
+      }
+
+      // Create tasks list
+      const tasksList = createTasksList();
+      response.tasks.forEach(task => {
+        const taskItem = createTaskItem(task.title);
+        tasksList.appendChild(taskItem);
+      });
+      container.appendChild(tasksList);
+    });
+  }
+
+  // ============================================================================
   // OVERLAY CREATION
   // ============================================================================
 
@@ -346,6 +418,9 @@
 
     // Function to show time selection options
     const showTimeSelection = () => {
+
+      // Hide tasks section when moving to time selection
+      tasksSection.style.display = 'none';
       // Hide the button and message
       button.style.display = 'none';
       message.style.display = 'none';
@@ -405,9 +480,21 @@
       showTimeSelection();
     }, false);
 
+    // Create tasks section (will be populated asynchronously)
+    const tasksSection = document.createElement('div');
+    tasksSection.className = 'tasks-section';
+    const tasksTitle = createTasksSectionTitle();
+    tasksSection.appendChild(tasksTitle);
+    
+    // Placeholder for tasks (will be replaced when tasks are loaded)
+    const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'tasks-container';
+    tasksSection.appendChild(tasksContainer);
+
     // Assemble overlay
     content.appendChild(title);
     content.appendChild(message);
+    content.appendChild(tasksSection);
     content.appendChild(button);
     overlay.appendChild(content);
 
@@ -416,6 +503,9 @@
 
     // Inject overlay atomically
     injectElement(overlay);
+
+    // Fetch and display tasks asynchronously
+    fetchAndDisplayTasks(tasksContainer);
 
     // Block body scroll (only when overlay is active)
     if (document.body || document.documentElement) {

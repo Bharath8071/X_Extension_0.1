@@ -44,7 +44,7 @@
 /* Message */
 #focus-overlay-blocker .overlay-message {
   font-size: 18px !important;
-  margin: 0 0 32px 0 !important;
+  margin: 0 0 0 0 !important;
   color: rgba(255, 255, 255, 0.9) !important;
   line-height: 1.6 !important;
 }
@@ -122,6 +122,51 @@
 #focus-overlay-blocker .time-button:hover {
   background: rgba(255, 255, 255, 0.3) !important;
   border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Tasks Section */
+#focus-overlay-blocker .tasks-section {
+  margin: 24px 0 32px 0 !important;
+  text-align: left !important;
+}
+
+#focus-overlay-blocker .tasks-section-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin: 0 0 16px 0 !important;
+  color: white !important;
+}
+
+#focus-overlay-blocker .tasks-list {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+#focus-overlay-blocker .task-item {
+  font-size: 16px !important;
+  padding: 10px 0 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  line-height: 1.5 !important;
+}
+
+#focus-overlay-blocker .task-item:last-child {
+  border-bottom: none !important;
+}
+
+#focus-overlay-blocker .task-item::before {
+  content: "• " !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-weight: bold !important;
+  margin-right: 8px !important;
+}
+
+#focus-overlay-blocker .tasks-empty-message {
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin: 0 !important;
+  font-style: italic !important;
 }
 
 /* ============================= */
